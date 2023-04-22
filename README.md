@@ -1,5 +1,7 @@
 # Bindable
 
+[![Elixir CI](https://github.com/iamafanasyev/bindable/actions/workflows/elixir.yml/badge.svg)](https://github.com/iamafanasyev/bindable/actions/workflows/elixir.yml)
+
 **TODO: Add description**
 
 ## Installation
