@@ -3,7 +3,7 @@ defmodule Bindable.MixProject do
 
   @name "Bindable"
   @version "0.1.0"
-  @description "Yet another Elixir monadic facility"
+  @description "For-comprehension at your service"
   @repo_url "https://github.com/iamafanasyev/bindable"
 
   def project do
