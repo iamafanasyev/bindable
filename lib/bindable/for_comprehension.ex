@@ -1,6 +1,6 @@
 defmodule Bindable.ForComprehension do
   @moduledoc """
-  Exposes Scala-like for-comprehension as an Elixir macro.
+  Elixir for-comprehension that goes beyond the `List`s.
 
   For-comprehension (its operations) could be implemented in several ways.
   For example, you can desugar it into chain of `flatMap` + `map` invocation:
@@ -18,16 +18,16 @@ defmodule Bindable.ForComprehension do
   They are useful to detect several kinds of flaws, while working with for-comprehension.
   For example inefficient guards:
 
-        iex> require Bindable.ForComprehension
-        ...> Bindable.ForComprehension.for {x <- [1, 2], y <- [3, 4], if x < 2}, do: {x, y}
+        iex> import Bindable.ForComprehension
+        ...> bindable for x <- [1, 2], y <- [3, 4], x < 2, do: {x, y}
         [{1, 3}, {1, 4}]
 
   In this case the guard does not refer to the last generated value,
   so the expression can be refactored to apply the guard *before* the last generator.
   It can dramatically improve performance of the whole expression in general!
 
-        iex> require Bindable.ForComprehension
-        ...> Bindable.ForComprehension.for {x <- [1, 2], if(x < 2), y <- [3, 4]}, do: {x, y}
+        iex> import Bindable.ForComprehension
+        ...> bindable for x <- [1, 2], x < 2, y <- [3, 4], do: {x, y}
         [{1, 3}, {1, 4}]
 
   That is why `flatMap` + `pure` was used for implementation,
@@ -37,7 +37,7 @@ defmodule Bindable.ForComprehension do
   """
 
   @doc """
-  Scala-like for-comprehension as an Elixir macro.
+  Elixir for-comprehension that goes beyond the `List`s.
 
   Elixir does not have variadic functions or macros.
   But Elixir's for-comprehension looks exactly like variadic macro:
@@ -46,33 +46,31 @@ defmodule Bindable.ForComprehension do
         [{1, 3}, {1, 4}, {2, 3}, {2, 4}]
 
   That's because it is actually a `Kernel.SpecialForms.for/1`, treated "specially" by compiler.
-  So to emulate variadic nature of for-comprehension (e.g. it can have one or many generators),
-  you have to pass an argument of "variadic nature" (e.g. `List` or `Tuple`).
-  `Tuple` was selected to conform with already commonly known Scala for-syntax:
+  So to emulate variadic nature of for-comprehension (e.g. it can have one or many generators)
+  macro application was used (macro applied to `Kernel.SpecialForms.for/1` expression):
 
-        iex> require Bindable.ForComprehension
-        ...> Bindable.ForComprehension.for {x <- [1, 2], y <- [3, 4]}, do: {x, y}
+        iex> import Bindable.ForComprehension
+        ...> bindable for x <- [1, 2], y <- [3, 4], do: {x, y}
         [{1, 3}, {1, 4}, {2, 3}, {2, 4}]
 
-  It also supports "guards" (i.e. `if x < 42`),
-  but Elixir's macro expansion imposes one tricky restriction on the syntax:
-  you have to wrap if-expression (predicate) in a brackets,
-  so Elixir can distinguish tuple elements from function application (`{..., if(x < 42), y = x + 1, ...}`).
-  That is why brackets may be omitted for "trailing"-if (`{..., if x < 42}`).
+  It also supports `Kernel.SpecialForms.for/1`-like guards and assigns.
   """
-  defmacro for(_computations = {:{}, _, [{:<-, _, [a, ma]} | rest]}, _yield = [do: yield]) do
+  defmacro bindable({:for, _, [{:<-, _, [a, ma]} | rest_with_yield]}) do
     quote do
-      import Bindable.ForComprehension, only: [do_for: 6]
+      require Bindable.ForComprehension
 
-      do_for([], [], unquote(a), unquote(ma), unquote(rest), unquote(yield))
+      Bindable.ForComprehension.do_for([], [], unquote(a), unquote(ma), unquote(rest_with_yield))
     end
   end
 
-  defmacro for({{:<-, _, [a, ma]}, e}, do: yield) do
-    quote do
-      import Bindable.ForComprehension, only: [do_for: 6]
+  defmacro bindable({:for, _, [{:<-, _, [a, ma]} | rest]}, do: yield) do
+    rest_with_yield =
+      rest ++ [[do: yield]]
 
-      do_for([], [], unquote(a), unquote(ma), [unquote(e)], unquote(yield))
+    quote do
+      require Bindable.ForComprehension
+
+      Bindable.ForComprehension.do_for([], [], unquote(a), unquote(ma), unquote(rest_with_yield))
     end
   end
 
@@ -83,16 +81,15 @@ defmodule Bindable.ForComprehension do
   It would require `do_for` import at the call-site, which is impossible for "private"-macro (defined by `defmacrop`).
   """
   defmacro do_for(
-             reverse_ordered_definitions,
+             reverse_ordered_assigns,
              reverse_ordered_guards,
              a,
              ma,
-             _rest_computations = [],
-             yield
+             [[do: yield]]
            ) do
     capture_definitions =
       {:__block__, [],
-       reverse_ordered_definitions
+       reverse_ordered_assigns
        |> Stream.map(fn {x, definition} -> {:=, [], [x, definition]} end)
        |> Enum.reverse()}
 
@@ -117,16 +114,15 @@ defmodule Bindable.ForComprehension do
   end
 
   defmacro do_for(
-             reverse_ordered_definitions,
+             reverse_ordered_assigns,
              reverse_ordered_guards,
              a,
              ma,
-             [{:<-, _, [b, mb]} | rest],
-             yield
+             [{:<-, _, [b, mb]} | rest_with_yield]
            ) do
     capture_definitions =
       {:__block__, [],
-       reverse_ordered_definitions
+       reverse_ordered_assigns
        |> Stream.map(fn {x, definition} -> {:=, [], [x, definition]} end)
        |> Enum.reverse()}
 
@@ -136,7 +132,7 @@ defmodule Bindable.ForComprehension do
       |> Enum.reverse()
 
     quote do
-      import Bindable.ForComprehension, only: [do_for: 6]
+      require Bindable.ForComprehension
 
       unquoted_ma = unquote(ma)
 
@@ -144,7 +140,13 @@ defmodule Bindable.ForComprehension do
         unquote(capture_definitions)
 
         if Enum.all?(unquote(capture_guards), & &1.(unquote(a))) do
-          do_for([], [], unquote(b), unquote(mb), unquote(rest), unquote(yield))
+          Bindable.ForComprehension.do_for(
+            [],
+            [],
+            unquote(b),
+            unquote(mb),
+            unquote(rest_with_yield)
+          )
         else
           Bindable.Empty.of(unquoted_ma)
         end
@@ -153,53 +155,51 @@ defmodule Bindable.ForComprehension do
   end
 
   defmacro do_for(
-             reverse_ordered_definitions,
+             reverse_ordered_assigns,
              reverse_ordered_guards,
              a,
              ma,
-             [{:if, _, [p]} | rest],
-             yield
+             [{:=, _, [b, definition]} | rest_with_yield]
            ) do
-    extended_reverse_ordered_guards = [p | reverse_ordered_guards]
+    extended_reverse_ordered_assigns =
+      [{b, definition} | reverse_ordered_assigns]
+
+    quote do
+      require Bindable.ForComprehension
+
+      Bindable.ForComprehension.do_for(
+        unquote(extended_reverse_ordered_assigns),
+        unquote(reverse_ordered_guards),
+        unquote(a),
+        unquote(ma),
+        unquote(rest_with_yield)
+      )
+    end
+  end
+
+  defmacro do_for(
+             reverse_ordered_assigns,
+             reverse_ordered_guards,
+             a,
+             ma,
+             [guard | rest_with_yield]
+           ) do
+    extended_reverse_ordered_guards =
+      [guard | reverse_ordered_guards]
 
     quote do
       unquoted_ma = unquote(ma)
 
       Bindable.Empty.impl_for!(unquoted_ma)
 
-      import Bindable.ForComprehension, only: [do_for: 6]
+      require Bindable.ForComprehension
 
-      do_for(
-        unquote(reverse_ordered_definitions),
+      Bindable.ForComprehension.do_for(
+        unquote(reverse_ordered_assigns),
         unquote(extended_reverse_ordered_guards),
         unquote(a),
         unquoted_ma,
-        unquote(rest),
-        unquote(yield)
-      )
-    end
-  end
-
-  defmacro do_for(
-             reverse_ordered_definitions,
-             reverse_ordered_guards,
-             a,
-             ma,
-             [{:=, _, [b, definition]} | rest],
-             yield
-           ) do
-    extended_reverse_ordered_definitions = [{b, definition} | reverse_ordered_definitions]
-
-    quote do
-      import Bindable.ForComprehension, only: [do_for: 6]
-
-      do_for(
-        unquote(extended_reverse_ordered_definitions),
-        unquote(reverse_ordered_guards),
-        unquote(a),
-        unquote(ma),
-        unquote(rest),
-        unquote(yield)
+        unquote(rest_with_yield)
       )
     end
   end
