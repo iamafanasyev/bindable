@@ -2,20 +2,18 @@
 
 [![Elixir CI](https://github.com/iamafanasyev/bindable/actions/workflows/elixir.yml/badge.svg)](https://github.com/iamafanasyev/bindable/actions/workflows/elixir.yml)
 
-For-comprehension at your service.
+Elixir for-comprehension that goes beyond the `List`s.
 
 ```elixir
-alias Bindable.Maybe
-require Bindable.ForComprehension
+import Bindable.ForComprehension
+import Bindable.Maybe
 
-Bindable.ForComprehension.for {
-  x <- Maybe.just(1),
-  y <- Maybe.just(2),
-  if(x + y > 4),
-  z <- Maybe.just(3)
-} do
-  x + y + z
-end === Maybe.nothing()
+bindable for x <- just(1),
+             y <- just(2),
+             x + y > 4,
+             z <- just(3),
+             do: x + y + z
+# nothing()
 ```
 
 ## For-comprehension
@@ -30,18 +28,16 @@ To do so, it provides following constructs to combine such computations into new
  * Yield: defines resulting value to return inside the monadic context.
 
 ```elixir
-require Bindable.ForComprehension
+import Bindable.ForComprehension
 
 xs = [[10, 20], [30]]
-Bindable.ForComprehension.for {
-  x <- xs,           # generator
-  if(length(x) > 1), # guard
-  y <- x,            # next generator
-  z = y + 1,         # assign
-  if(y + z > 21)     # another guard
-} do
-  {y, z}             # yield
-end === [{20, 21}]
+bindable for x <- xs,       # generator
+             length(x) > 1, # guard
+             y <- x,        # next generator
+             z = y + 1,     # assign
+             y + z > 21,    # another guard
+             do: {y, z}     # yield
+# [{20, 21}]
 ```
 
 ## Usage
