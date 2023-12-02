@@ -1,19 +1,16 @@
 defmodule Bindable do
   @moduledoc """
-  For-comprehension at your service.
+  Elixir for-comprehension that goes beyond the `List`s.
 
-        iex> alias Bindable.Maybe
-        ...> require Bindable.ForComprehension
+        iex> import Bindable.ForComprehension
+        ...> import Bindable.Maybe
         ...>
-        ...> Bindable.ForComprehension.for {
-        ...>   x <- Maybe.just(1),
-        ...>   y <- Maybe.just(2),
-        ...>   if(x + y > 4),
-        ...>   z <- Maybe.just(3)
-        ...> } do
-        ...>   x + y + z
-        ...> end
-        Maybe.nothing()
+        ...> bindable for x <- just(1),
+        ...>              y <- just(2),
+        ...>              x + y > 4,
+        ...>              z <- just(3),
+        ...>          do: x + y + z
+        nothing()
 
   For-comprehension is a common syntax construct in functional programming languages,
   that allows you to express complex operations on collections and monadic contexts in a concise and expressive way.
@@ -24,20 +21,17 @@ defmodule Bindable do
    * Assign: aliases any expression inside current scope.
    * Yield: defines resulting value to return inside the monadic context.
 
-  Here comes and example of them:
+  Here comes an example of them:
 
-        iex> require Bindable.ForComprehension
+        iex> import Bindable.ForComprehension
         ...>
         ...> xs = [[10, 20], [30]]
-        ...> Bindable.ForComprehension.for {
-        ...>   x <- xs,           # generator
-        ...>   if(length(x) > 1), # guard
-        ...>   y <- x,            # next generator
-        ...>   z = y + 1,         # assign
-        ...>   if(y + z > 21)     # another guard
-        ...> } do
-        ...>   {y, z}             # yield
-        ...> end
+        ...> bindable for x <- xs,       # generator
+        ...>              length(x) > 1, # guard
+        ...>              y <- x,        # next generator
+        ...>              z = y + 1,     # assign
+        ...>              y + z > 21,    # another guard
+        ...>          do: {y, z}         # yield
         [{20, 21}]
 
   Elixir's kernel provides for-comprehension ***only*** for lists.
@@ -50,16 +44,13 @@ defmodule Bindable do
 
   So you can lazily create new stream out of provided ones:
 
-        iex> require Bindable.ForComprehension
+        iex> import Bindable.ForComprehension
         ...>
         ...> lazy_xs = Stream.take(1..5, 2)
         ...> lazy_ys = Stream.take(5..9, 2)
-        ...> lazy_xys = Bindable.ForComprehension.for {
-        ...>   x <- lazy_xs,
-        ...>   y <- lazy_ys
-        ...> } do
-        ...>   {x, y}
-        ...> end
+        ...> lazy_xys = bindable for x <- lazy_xs,
+        ...>                         y <- lazy_ys,
+        ...>                     do: {x, y}
         ...>
         ...> {is_list(lazy_xys), Enum.to_list(lazy_xys)}
         {false, [{1, 5}, {1, 6}, {2, 5}, {2, 6}]}
