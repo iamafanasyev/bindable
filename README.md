@@ -70,7 +70,7 @@ The package can be installed by adding `bindable` to your list of dependencies i
 ```elixir
 def deps do
   [
-    {:bindable, "~> 1.0.0"}
+    {:bindable, "~> 1.1.0"}
   ]
 end
 ```
