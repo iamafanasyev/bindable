@@ -55,22 +55,34 @@ defmodule Bindable.ForComprehension do
 
   It also supports `Kernel.SpecialForms.for/1`-like guards and assigns.
   """
-  defmacro bindable({:for, _, [{:<-, _, [a, ma]} | rest_with_yield]}) do
+  defmacro bindable({:for, _, [{:<-, _, [generated_value_pattern, generator]} | rest_with_yield]}) do
     quote do
       require Bindable.ForComprehension
 
-      Bindable.ForComprehension.do_for([], [], unquote(a), unquote(ma), unquote(rest_with_yield))
+      Bindable.ForComprehension.do_for(
+        [],
+        [],
+        unquote(generated_value_pattern),
+        unquote(generator),
+        unquote(rest_with_yield)
+      )
     end
   end
 
-  defmacro bindable({:for, _, [{:<-, _, [a, ma]} | rest]}, do: yield) do
+  defmacro bindable({:for, _, [{:<-, _, [generated_value_pattern, generator]} | rest]}, do: yield) do
     rest_with_yield =
       rest ++ [[do: yield]]
 
     quote do
       require Bindable.ForComprehension
 
-      Bindable.ForComprehension.do_for([], [], unquote(a), unquote(ma), unquote(rest_with_yield))
+      Bindable.ForComprehension.do_for(
+        [],
+        [],
+        unquote(generated_value_pattern),
+        unquote(generator),
+        unquote(rest_with_yield)
+      )
     end
   end
 
@@ -83,8 +95,8 @@ defmodule Bindable.ForComprehension do
   defmacro do_for(
              reverse_ordered_assigns,
              reverse_ordered_guards,
-             a,
-             ma,
+             generated_value_pattern,
+             generator,
              [[do: yield]]
            ) do
     capture_definitions =
@@ -95,24 +107,24 @@ defmodule Bindable.ForComprehension do
 
     capture_guards =
       reverse_ordered_guards
-      |> Stream.map(fn p -> quote do: fn unquote(a) -> unquote(p) end end)
+      |> Stream.map(fn p -> quote do: fn unquote(generated_value_pattern) -> unquote(p) end end)
       |> Enum.reverse()
 
     quote do
-      unquoted_ma = unquote(ma)
+      unquoted_generator = unquote(generator)
 
-      Bindable.FlatMap.flat_map(unquoted_ma, fn generated_value ->
-        with unquote(a) <- generated_value do
+      Bindable.FlatMap.flat_map(unquoted_generator, fn generated_value ->
+        with unquote(generated_value_pattern) <- generated_value do
           unquote(capture_definitions)
 
           if Enum.all?(unquote(capture_guards), & &1.(generated_value)) do
-            Bindable.Pure.of(unquoted_ma, unquote(yield))
+            Bindable.Pure.of(unquoted_generator, unquote(yield))
           else
-            Bindable.Empty.of(unquoted_ma)
+            Bindable.Empty.of(unquoted_generator)
           end
         else
           _generated_value_pattern_mismatch ->
-            Bindable.Empty.of(unquoted_ma)
+            Bindable.Empty.of(unquoted_generator)
         end
       end)
     end
@@ -121,9 +133,9 @@ defmodule Bindable.ForComprehension do
   defmacro do_for(
              reverse_ordered_assigns,
              reverse_ordered_guards,
-             a,
-             ma,
-             [{:<-, _, [b, mb]} | rest_with_yield]
+             generated_value_pattern,
+             generator,
+             [{:<-, _, [next_generated_value_pattern, next_generator]} | rest_with_yield]
            ) do
     capture_definitions =
       {:__block__, [],
@@ -133,32 +145,32 @@ defmodule Bindable.ForComprehension do
 
     capture_guards =
       reverse_ordered_guards
-      |> Stream.map(fn p -> quote do: fn unquote(a) -> unquote(p) end end)
+      |> Stream.map(fn p -> quote do: fn unquote(generated_value_pattern) -> unquote(p) end end)
       |> Enum.reverse()
 
     quote do
       require Bindable.ForComprehension
 
-      unquoted_ma = unquote(ma)
+      unquoted_generator = unquote(generator)
 
-      Bindable.FlatMap.flat_map(unquoted_ma, fn generated_value ->
-        with unquote(a) <- generated_value do
+      Bindable.FlatMap.flat_map(unquoted_generator, fn generated_value ->
+        with unquote(generated_value_pattern) <- generated_value do
           unquote(capture_definitions)
 
           if Enum.all?(unquote(capture_guards), & &1.(generated_value)) do
             Bindable.ForComprehension.do_for(
               [],
               [],
-              unquote(b),
-              unquote(mb),
+              unquote(next_generated_value_pattern),
+              unquote(next_generator),
               unquote(rest_with_yield)
             )
           else
-            Bindable.Empty.of(unquoted_ma)
+            Bindable.Empty.of(unquoted_generator)
           end
         else
           _generated_value_pattern_mismatch ->
-            Bindable.Empty.of(unquoted_ma)
+            Bindable.Empty.of(unquoted_generator)
         end
       end)
     end
@@ -167,8 +179,8 @@ defmodule Bindable.ForComprehension do
   defmacro do_for(
              reverse_ordered_assigns,
              reverse_ordered_guards,
-             a,
-             ma,
+             generated_value_pattern,
+             generator,
              [{:=, _, [b, definition]} | rest_with_yield]
            ) do
     extended_reverse_ordered_assigns =
@@ -180,8 +192,8 @@ defmodule Bindable.ForComprehension do
       Bindable.ForComprehension.do_for(
         unquote(extended_reverse_ordered_assigns),
         unquote(reverse_ordered_guards),
-        unquote(a),
-        unquote(ma),
+        unquote(generated_value_pattern),
+        unquote(generator),
         unquote(rest_with_yield)
       )
     end
@@ -190,25 +202,25 @@ defmodule Bindable.ForComprehension do
   defmacro do_for(
              reverse_ordered_assigns,
              reverse_ordered_guards,
-             a,
-             ma,
+             generated_value_pattern,
+             generator,
              [guard | rest_with_yield]
            ) do
     extended_reverse_ordered_guards =
       [guard | reverse_ordered_guards]
 
     quote do
-      unquoted_ma = unquote(ma)
+      unquoted_generator = unquote(generator)
 
-      Bindable.Empty.impl_for!(unquoted_ma)
+      Bindable.Empty.impl_for!(unquoted_generator)
 
       require Bindable.ForComprehension
 
       Bindable.ForComprehension.do_for(
         unquote(reverse_ordered_assigns),
         unquote(extended_reverse_ordered_guards),
-        unquote(a),
-        unquoted_ma,
+        unquote(generated_value_pattern),
+        unquoted_generator,
         unquote(rest_with_yield)
       )
     end
