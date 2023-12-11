@@ -2,7 +2,7 @@ defmodule Bindable.MixProject do
   use Mix.Project
 
   @name "Bindable"
-  @version "1.0.0"
+  @version "1.1.0"
   @description "Elixir for-comprehension that goes beyond the lists"
   @repo_url "https://github.com/iamafanasyev/bindable"
 
