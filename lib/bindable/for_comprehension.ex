@@ -101,13 +101,18 @@ defmodule Bindable.ForComprehension do
     quote do
       unquoted_ma = unquote(ma)
 
-      Bindable.FlatMap.flat_map(unquoted_ma, fn unquote(a) ->
-        unquote(capture_definitions)
+      Bindable.FlatMap.flat_map(unquoted_ma, fn generated_value ->
+        with unquote(a) <- generated_value do
+          unquote(capture_definitions)
 
-        if Enum.all?(unquote(capture_guards), & &1.(unquote(a))) do
-          Bindable.Pure.of(unquoted_ma, unquote(yield))
+          if Enum.all?(unquote(capture_guards), & &1.(generated_value)) do
+            Bindable.Pure.of(unquoted_ma, unquote(yield))
+          else
+            Bindable.Empty.of(unquoted_ma)
+          end
         else
-          Bindable.Empty.of(unquoted_ma)
+          _generated_value_pattern_mismatch ->
+            Bindable.Empty.of(unquoted_ma)
         end
       end)
     end
@@ -136,19 +141,24 @@ defmodule Bindable.ForComprehension do
 
       unquoted_ma = unquote(ma)
 
-      Bindable.FlatMap.flat_map(unquoted_ma, fn unquote(a) ->
-        unquote(capture_definitions)
+      Bindable.FlatMap.flat_map(unquoted_ma, fn generated_value ->
+        with unquote(a) <- generated_value do
+          unquote(capture_definitions)
 
-        if Enum.all?(unquote(capture_guards), & &1.(unquote(a))) do
-          Bindable.ForComprehension.do_for(
-            [],
-            [],
-            unquote(b),
-            unquote(mb),
-            unquote(rest_with_yield)
-          )
+          if Enum.all?(unquote(capture_guards), & &1.(generated_value)) do
+            Bindable.ForComprehension.do_for(
+              [],
+              [],
+              unquote(b),
+              unquote(mb),
+              unquote(rest_with_yield)
+            )
+          else
+            Bindable.Empty.of(unquoted_ma)
+          end
         else
-          Bindable.Empty.of(unquoted_ma)
+          _generated_value_pattern_mismatch ->
+            Bindable.Empty.of(unquoted_ma)
         end
       end)
     end
