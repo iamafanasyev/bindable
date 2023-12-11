@@ -64,8 +64,20 @@ defmodule Bindable do
    * `Bindable.FlatMap` implementation to chain sequential generators;
    * `Bindable.Pure` implementation to yield resulting value (design decision, see `Bindable.ForComprehension`).
 
-  If you want to use guards/filters inside for-comprehension with your data type,
+  If you want to use guards/filters inside for-comprehension with your data type
+  (or you want to pattern match on the generated values like `Kernel.SpecialForms.for/1` does,
+  as in this case pattern matching has filtering semantics),
   you should also provide an implementation for `Bindable.Empty`, so it is optional,
-  e.g. when your data type does not provide any meaningful semantics for empty/filtered value effect.
+  e.g. when your data type does not provide any meaningful semantics for empty/filtered value effect:
+
+        iex> import Bindable.ForComprehension
+        ...>
+        ...> xs =  [[], [2, 2], [3], [4]]
+        ...> xys = [[1, 1], [2, 2], [3, 3], [4, 4]]
+        ...> bindable for [x] <- xs,      # pattern matching guard
+        ...>              [^x, y] <- xys, # pattern matching guard with ^ operator
+        ...>              y > 0,          # "conventional" guard
+        ...>              do: [x, y]
+        [[3, 3], [4, 4]]
   """
 end
